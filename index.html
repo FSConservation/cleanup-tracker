@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MUVE Trash Tracker · Virginia Key North Point Park</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#f7f6f2;color:#1a1a18;min-height:100vh;padding:2rem 1rem}
+.wrap{max-width:1060px;margin:0 auto}
+.eyebrow{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#7a9080;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+h1{font-size:clamp(22px,3.5vw,36px);font-weight:600;letter-spacing:-0.02em;color:#1a1a18;line-height:1.15;margin-bottom:3px}
+.sub{font-size:13px;color:#888;margin-bottom:2px}
+.since{font-size:12px;color:#aaa;font-family:'DM Mono',monospace;margin-bottom:2rem}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:1.75rem}
+.stat{background:#fff;border:1px solid #ebebeb;border-radius:10px;padding:1rem 1.25rem}
+.stat-lbl{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#aaa;margin-bottom:5px}
+.stat-val{font-size:26px;font-weight:600;color:#1a1a18;line-height:1}
+.grid{display:grid;grid-template-columns:1fr 300px;gap:1.25rem;align-items:start}
+@media(max-width:780px){.grid{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid #ebebeb;border-radius:14px;padding:1.5rem}
+.tabs{display:flex;gap:3px;background:#f2f1ed;border-radius:8px;padding:3px;width:fit-content;margin-bottom:1.25rem}
+.tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.05em;text-transform:uppercase;background:none;border:none;color:#888;padding:6px 14px;border-radius:6px;cursor:pointer;transition:all .15s}
+.tab.on{background:#1a1a18;color:#fff}
+.legend{display:flex;gap:14px;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:6px;font-size:12px;color:#888;font-family:'DM Mono',monospace}
+.leg-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.chart-hd{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:1rem}
+.chart-wrap{position:relative;height:300px}
+.dl-btn{font-family:'DM Mono',monospace;font-size:11px;background:#f2f1ed;border:none;color:#888;padding:6px 13px;border-radius:7px;cursor:pointer;margin-top:10px;float:right}
+.dl-btn:hover{background:#e8e7e2}
+.side{display:flex;flex-direction:column;gap:1rem}
+.form-title{font-size:14px;font-weight:600;color:#1a1a18;margin-bottom:4px}
+.form-desc{font-size:12px;color:#aaa;margin-bottom:14px}
+label{display:block;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#aaa;margin-bottom:5px}
+input{width:100%;background:#f7f6f2;border:1px solid #e5e4e0;border-radius:8px;padding:9px 11px;font-family:'DM Sans',sans-serif;font-size:14px;color:#1a1a18;outline:none;transition:border-color .15s;margin-bottom:11px}
+input:focus{border-color:#1a1a18}
+input::placeholder{color:#ccc}
+.btn-primary{width:100%;background:#1a1a18;color:#fff;border:none;border-radius:8px;padding:11px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.btn-primary:hover{opacity:.82}
+.btn-lock{font-family:'DM Mono',monospace;font-size:11px;background:none;border:1px solid #e5e4e0;color:#aaa;padding:4px 10px;border-radius:7px;cursor:pointer}
+.toast{font-size:12px;font-family:'DM Mono',monospace;text-align:center;margin-top:8px;height:16px}
+.log-wrap{max-height:280px;overflow-y:auto}
+.log-wrap::-webkit-scrollbar{width:4px}
+.log-wrap::-webkit-scrollbar-thumb{background:#e5e4e0;border-radius:2px}
+.log-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f2f1ed;gap:6px;font-size:12px}
+.log-row:last-child{border-bottom:none}
+.log-date{font-family:'DM Mono',monospace;font-size:11px;color:#aaa;flex-shrink:0}
+.log-tag{font-family:'DM Mono',monospace;font-size:10px;padding:2px 7px;border-radius:4px;flex-shrink:0}
+.t24{color:#378ADD;background:rgba(55,138,221,0.1)}
+.t25{color:#1D9E75;background:rgba(29,158,117,0.1)}
+.t26{color:#D85A30;background:rgba(216,90,48,0.1)}
+.log-lbs{font-weight:500;color:#1a1a18;flex-shrink:0}
+.del-btn{background:none;border:none;color:#ccc;cursor:pointer;font-size:16px;line-height:1;padding:1px 3px}
+.del-btn:hover{color:#e05555}
+.pw-err{font-size:12px;font-family:'DM Mono',monospace;color:#e05555;text-align:center;margin-top:8px;height:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div style="margin-bottom:1.75rem">
+    <p class="eyebrow">Frost Science · MUVE Program</p>
+    <h1>Virginia Key Trash Tracker</h1>
+    <p class="sub">Average pounds of trash removed per event · North Point Park</p>
+    <p class="since">Data collection since June 27, 2024</p>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-lbl">Total removed</div><div class="stat-val" id="sTot">—</div></div>
+    <div class="stat"><div class="stat-lbl">Events logged</div><div class="stat-val" id="sEvt">—</div></div>
+    <div class="stat"><div class="stat-lbl">Overall avg</div><div class="stat-val" id="sAvg">—</div></div>
+    <div class="stat"><div class="stat-lbl">Best event</div><div class="stat-val" id="sBest">—</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="chart-hd">
+        <div class="tabs">
+          <button class="tab on" id="tabAvg" onclick="setView('avg')">Avg</button>
+          <button class="tab" id="tabTot" onclick="setView('total')">Total</button>
+          <button class="tab" id="tabAll" onclick="setView('all')">All events</button>
+        </div>
+        <div class="legend">
+          <span class="leg"><span class="leg-dot" style="background:#378ADD"></span>2024</span>
+          <span class="leg"><span class="leg-dot" style="background:#1D9E75"></span>2025</span>
+          <span class="leg"><span class="leg-dot" style="background:#D85A30"></span>2026</span>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+      <button class="dl-btn" onclick="dlChart()">↓ download png</button>
+      <div style="clear:both"></div>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <div id="lockedView">
+          <p class="form-title">Admin access</p>
+          <p class="form-desc">Enter password to log a new event.</p>
+          <label>Password</label>
+          <input type="password" id="pwInput" placeholder="••••••••" onkeydown="if(event.key==='Enter')unlock()">
+          <button class="btn-primary" onclick="unlock()">Unlock</button>
+          <p class="pw-err" id="pwErr"></p>
+        </div>
+        <div id="unlockedView" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+            <p class="form-title" style="margin:0">Log new event</p>
+            <button class="btn-lock" onclick="lock()">lock</button>
+          </div>
+          <label>Date</label>
+          <input type="date" id="iDate">
+          <label>Pounds of trash</label>
+          <input type="number" id="iLbs" placeholder="e.g. 34.5" step="0.01" min="0">
+          <button class="btn-primary" onclick="addEntry()">Add entry</button>
+          <p class="toast" id="toast"></p>
+        </div>
+      </div>
+
+      <div class="card">
+        <p style="font-size:14px;font-weight:600;color:#1a1a18;margin-bottom:12px">Event log</p>
+        <div class="log-wrap"><div id="logList"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const COLORS={2024:'#378ADD',2025:'#1D9E75',2026:'#D85A30'};
+const PW='MUVE1101';
+const SEED=[
+  ['2024-06-27',0],['2024-07-11',28],['2024-07-18',0],['2024-07-30',0],
+  ['2024-08-06',0],['2024-08-07',0],['2024-08-15',0],['2024-08-22',0],['2024-08-29',11.5],
+  ['2024-09-05',18.827],['2024-09-10',0],['2024-09-12',0],['2024-09-19',11.26],['2024-09-26',27.68],
+  ['2024-10-03',14.28],['2024-10-17',0],['2024-10-24',0],['2024-10-31',0],
+  ['2024-11-07',50.08],['2024-11-23',15.96],
+  ['2024-12-05',38.72],['2024-12-12',0],['2024-12-19',10.1],
+  ['2025-01-02',65],['2025-01-09',10.8],['2025-01-16',11.74],['2025-01-23',12.96],['2025-01-30',0],
+  ['2025-02-06',20.42],['2025-02-13',11.84],['2025-02-20',8.72],['2025-02-27',36.5],
+  ['2025-03-06',15.94],['2025-03-13',18.1],['2025-03-20',14.35],['2025-03-27',24.64],
+  ['2025-04-03',8.77],['2025-04-10',9],['2025-04-17',36.1],
+  ['2025-05-01',27.59],['2025-05-15',5.61],['2025-05-22',22.11],['2025-05-29',33.15],
+  ['2025-06-05',53.72],['2025-06-12',9.51],['2025-06-19',18.52],['2025-06-26',0],
+  ['2025-07-03',0],['2025-07-10',10.17],['2025-07-12',0],['2025-07-17',10.6],['2025-07-24',0],['2025-07-31',23.02],
+  ['2025-08-07',4.116],['2025-08-14',22.28],['2025-08-21',20.01],
+  ['2025-09-04',8.36],['2025-09-10',0],['2025-09-11',0],['2025-09-18',0],['2025-09-25',7.2],
+  ['2025-10-02',28.79],['2025-10-09',0],['2025-10-16',60],['2025-10-23',21.35],['2025-10-30',25.91],
+  ['2025-11-06',23.6],['2025-11-13',30.18],['2025-11-20',12],
+  ['2025-12-11',23],['2025-12-18',18],
+  ['2026-01-08',18],['2026-01-15',29],['2026-01-22',24],['2026-01-29',46],
+  ['2026-02-12',40],['2026-02-26',4],
+  ['2026-03-05',20],['2026-03-12',26.5],['2026-03-19',36],['2026-03-26',33],
+  ['2026-04-02',28.5],['2026-04-16',24.49],['2026-04-23',15.3],['2026-04-30',28],
+  ['2026-05-07',25],['2026-05-14',32.5],['2026-05-21',46.49],['2026-05-28',17],
+  ['2026-06-04',165.8]
+];
+
+const SK='muve_entries_v2';
+function load(){try{const s=localStorage.getItem(SK);if(s)return JSON.parse(s);}catch(e){}const d=SEED.map(([date,lbs])=>({date,lbs}));save(d);return d;}
+function save(e){try{localStorage.setItem(SK,JSON.stringify(e));}catch(e){}}
+
+let entries=load(),view='avg',chart=null;
+
+function unlock(){
+  const v=document.getElementById('pwInput').value;
+  if(v===PW){
+    document.getElementById('lockedView').style.display='none';
+    document.getElementById('unlockedView').style.display='block';
+    document.getElementById('pwInput').value='';
+    document.getElementById('pwErr').textContent='';
+    document.getElementById('iDate').valueAsDate=new Date();
+    buildLog();
+  } else {
+    document.getElementById('pwErr').textContent='Incorrect password.';
+    document.getElementById('pwInput').value='';
+  }
+}
+function lock(){
+  document.getElementById('lockedView').style.display='block';
+  document.getElementById('unlockedView').style.display='none';
+  buildLog();
+}
+
+function setView(v){
+  view=v;
+  ['avg','total','all'].forEach(k=>{
+    const b=document.getElementById('tab'+k.charAt(0).toUpperCase()+k.slice(1));
+    if(b){b.className='tab'+(k===v?' on':'');}
+  });
+  buildChart();
+}
+
+function bym(){
+  const m={};
+  entries.forEach(e=>{
+    if(e.lbs<=0)return;
+    const d=new Date(e.date+'T12:00:00');
+    const yr=d.getFullYear(),mo=d.getMonth();
+    if(!m[yr])m[yr]=Array(12).fill(null).map(()=>[]);
+    m[yr][mo].push(e.lbs);
+  });
+  return m;
+}
+
+function buildChart(){
+  const data=bym();
+  const years=Object.keys(data).map(Number).sort();
+  const isSc=view==='all';
+  const ds=years.map(yr=>{
+    let d;
+    if(view==='avg') d=data[yr].map(a=>a.length?+(a.reduce((x,y)=>x+y,0)/a.length).toFixed(2):null);
+    else if(view==='total') d=data[yr].map(a=>a.length?+a.reduce((x,y)=>x+y,0).toFixed(2):null);
+    else{
+      d=[];
+      data[yr].forEach((a,mo)=>a.forEach((v,i)=>{
+        const off=a.length>1?(i/(a.length-1))*0.8:0;
+        d.push({x:mo+off,y:v});
+      }));
+    }
+    return{label:String(yr),data:d,borderColor:COLORS[yr]||'#888',backgroundColor:COLORS[yr]||'#888',pointRadius:isSc?3.5:4.5,pointHoverRadius:6,pointStyle:'circle',borderWidth:2,tension:0.35,spanGaps:false,fill:false,showLine:true};
+  });
+  if(chart)chart.destroy();
+  chart=new Chart(document.getElementById('mainChart'),{
+    type:isSc?'scatter':'line',
+    data:{labels:isSc?undefined:MONTHS,datasets:ds},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        title:c=>isSc?MONTHS[Math.round(c[0].parsed.x)]:c[0].label,
+        label:c=>{const s=view==='avg'?' lbs avg':view==='total'?' lbs total':' lbs';return`${c.dataset.label}: ${c.parsed.y.toFixed(1)}${s}`;}
+      }}},
+      scales:{
+        x:isSc?{type:'linear',min:-0.5,max:11.9,ticks:{stepSize:1,autoSkip:false,callback:v=>MONTHS[Math.round(v)],color:'#aaa',font:{size:11}},grid:{color:'#f0efeb'},border:{color:'#e8e7e2'}}:{ticks:{color:'#aaa',font:{size:11},autoSkip:false},grid:{color:'#f0efeb'},border:{color:'#e8e7e2'}},
+        y:{min:0,title:{display:true,text:view==='avg'?'avg lbs / event':view==='total'?'total lbs':'lbs',color:'#bbb',font:{size:11}},ticks:{color:'#aaa',font:{size:11}},grid:{color:'#f0efeb'},border:{color:'#e8e7e2'}}
+      }
+    }
+  });
+}
+
+function buildStats(){
+  const nz=entries.filter(e=>e.lbs>0);
+  const tot=nz.reduce((a,b)=>a+b.lbs,0);
+  const avg=nz.length?tot/nz.length:0;
+  const best=nz.length?Math.max(...nz.map(e=>e.lbs)):0;
+  document.getElementById('sTot').textContent=tot.toFixed(0)+' lbs';
+  document.getElementById('sEvt').textContent=nz.length;
+  document.getElementById('sAvg').textContent=avg.toFixed(1)+' lbs';
+  document.getElementById('sBest').textContent=best.toFixed(1)+' lbs';
+}
+
+function buildLog(){
+  const isAdmin=document.getElementById('unlockedView').style.display==='block';
+  const sorted=[...entries].reverse();
+  document.getElementById('logList').innerHTML=sorted.map((e,i)=>{
+    const ri=entries.length-1-i;
+    const d=new Date(e.date+'T12:00:00');
+    const yr=d.getFullYear();
+    const lbl=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    const tc={2024:'t24',2025:'t25',2026:'t26'};
+    const del=isAdmin?`<button class="del-btn" onclick="delEntry(${ri})" aria-label="delete">×</button>`:'';
+    return`<div class="log-row">
+      <span class="log-date">${lbl}</span>
+      <span class="log-tag ${tc[yr]||''}">${yr}</span>
+      <span class="log-lbs">${e.lbs} lbs</span>
+      ${del}
+    </div>`;
+  }).join('');
+}
+
+function addEntry(){
+  const dv=document.getElementById('iDate').value;
+  const lv=parseFloat(document.getElementById('iLbs').value);
+  if(!dv||isNaN(lv)||lv<0){showToast('Please enter a valid date and amount.',true);return;}
+  entries.push({date:dv,lbs:lv});
+  entries.sort((a,b)=>a.date.localeCompare(b.date));
+  save(entries);
+  document.getElementById('iDate').valueAsDate=new Date();
+  document.getElementById('iLbs').value='';
+  showToast('Entry added!');
+  render();
+}
+
+function delEntry(i){entries.splice(i,1);save(entries);render();}
+
+function showToast(msg,err=false){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.color=err?'#e05555':'#1D9E75';
+  setTimeout(()=>t.textContent='',2500);
+}
+
+function dlChart(){
+  const c=document.getElementById('mainChart');
+  const tmp=document.createElement('canvas');
+  tmp.width=c.width;tmp.height=c.height;
+  const tc=tmp.getContext('2d');
+  tc.fillStyle='#fff';tc.fillRect(0,0,tmp.width,tmp.height);
+  tc.drawImage(c,0,0);
+  const a=document.createElement('a');
+  a.download='muve_trash_chart.png';a.href=tmp.toDataURL('image/png');a.click();
+}
+
+function render(){buildStats();buildChart();buildLog();}
+render();
+</script>
+</body>
+</html>
