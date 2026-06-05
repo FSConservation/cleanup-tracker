@@ -10,7 +10,7 @@
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'DM Sans',sans-serif;background:#f7f6f2;color:#1a1a18;min-height:100vh;padding:2rem 1rem}
 .wrap{max-width:1060px;margin:0 auto}
-.eyebrow{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#7a9080;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.eyebrow{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#7a9080;margin-bottom:6px}
 h1{font-size:clamp(22px,3.5vw,36px);font-weight:600;letter-spacing:-0.02em;color:#1a1a18;line-height:1.15;margin-bottom:3px}
 .sub{font-size:13px;color:#888;margin-bottom:2px}
 .since{font-size:12px;color:#aaa;font-family:'DM Mono',monospace;margin-bottom:2rem}
@@ -40,6 +40,7 @@ input:focus{border-color:#1a1a18}
 input::placeholder{color:#ccc}
 .btn-primary{width:100%;background:#1a1a18;color:#fff;border:none;border-radius:8px;padding:11px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .15s}
 .btn-primary:hover{opacity:.82}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
 .btn-lock{font-family:'DM Mono',monospace;font-size:11px;background:none;border:1px solid #e5e4e0;color:#aaa;padding:4px 10px;border-radius:7px;cursor:pointer}
 .toast{font-size:12px;font-family:'DM Mono',monospace;text-align:center;margin-top:8px;height:16px}
 .log-wrap{max-height:280px;overflow-y:auto}
@@ -56,6 +57,9 @@ input::placeholder{color:#ccc}
 .del-btn{background:none;border:none;color:#ccc;cursor:pointer;font-size:16px;line-height:1;padding:1px 3px}
 .del-btn:hover{color:#e05555}
 .pw-err{font-size:12px;font-family:'DM Mono',monospace;color:#e05555;text-align:center;margin-top:8px;height:16px}
+.loading{text-align:center;font-family:'DM Mono',monospace;font-size:12px;color:#aaa;padding:1rem 0}
+.sync-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#1D9E75;margin-right:6px;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
 </style>
 </head>
 <body>
@@ -112,23 +116,26 @@ input::placeholder{color:#ccc}
           <input type="date" id="iDate">
           <label>Pounds of trash</label>
           <input type="number" id="iLbs" placeholder="e.g. 34.5" step="0.01" min="0">
-          <button class="btn-primary" onclick="addEntry()">Add entry</button>
+          <button class="btn-primary" id="addBtn" onclick="addEntry()">Add entry</button>
           <p class="toast" id="toast"></p>
         </div>
       </div>
 
       <div class="card">
         <p style="font-size:14px;font-weight:600;color:#1a1a18;margin-bottom:12px">Event log</p>
-        <div class="log-wrap"><div id="logList"></div></div>
+        <div class="log-wrap"><div id="logList"><div class="loading">Loading...</div></div></div>
       </div>
     </div>
   </div>
 </div>
 
 <script>
+const SUPABASE_URL='https://ccapcuzclkdkdwbotnsnu.supabase.co';
+const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNjYXBjdXpjbGtka2R3Ym90c251Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NzQwMTMsImV4cCI6MjA5NjI1MDAxM30.KZXOfn1NUxyyrJbytjMMfeYrRja1g-1GueDv1XkJMXw';
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const COLORS={2024:'#378ADD',2025:'#1D9E75',2026:'#D85A30'};
 const PW='MUVE1101';
+
 const SEED=[
   ['2024-06-27',0],['2024-07-11',28],['2024-07-18',0],['2024-07-30',0],
   ['2024-08-06',0],['2024-08-07',0],['2024-08-15',0],['2024-08-22',0],['2024-08-29',11.5],
@@ -156,11 +163,66 @@ const SEED=[
   ['2026-06-04',165.8]
 ];
 
-const SK='muve_entries_v2';
-function load(){try{const s=localStorage.getItem(SK);if(s)return JSON.parse(s);}catch(e){}const d=SEED.map(([date,lbs])=>({date,lbs}));save(d);return d;}
-function save(e){try{localStorage.setItem(SK,JSON.stringify(e));}catch(e){}}
+let entries=[],view='avg',chart=null;
 
-let entries=load(),view='avg',chart=null;
+async function api(path,opts={}){
+  const r=await fetch(SUPABASE_URL+'/rest/v1/'+path,{
+    headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation',...(opts.headers||{})},
+    ...opts
+  });
+  if(!r.ok){const e=await r.text();throw new Error(e);}
+  const text=await r.text();
+  return text?JSON.parse(text):[];
+}
+
+async function loadEntries(){
+  try {
+    const rows=await api('entries?select=*&order=date.asc');
+    if(rows.length===0){
+      // seed the database on first load
+      await seedDB();
+      return await api('entries?select=*&order=date.asc');
+    }
+    return rows;
+  } catch(e){
+    console.error('Load error',e);
+    return SEED.map(([date,lbs])=>({date,lbs}));
+  }
+}
+
+async function seedDB(){
+  const rows=SEED.map(([date,lbs])=>({date,lbs}));
+  await api('entries',{method:'POST',body:JSON.stringify(rows)});
+}
+
+async function addEntry(){
+  const dv=document.getElementById('iDate').value;
+  const lv=parseFloat(document.getElementById('iLbs').value);
+  if(!dv||isNaN(lv)||lv<0){showToast('Please enter a valid date and amount.',true);return;}
+  const btn=document.getElementById('addBtn');
+  btn.disabled=true;btn.textContent='Saving...';
+  try {
+    await api('entries',{method:'POST',body:JSON.stringify({date:dv,lbs:lv})});
+    entries=await loadEntries();
+    document.getElementById('iDate').valueAsDate=new Date();
+    document.getElementById('iLbs').value='';
+    showToast('Entry saved!');
+    render();
+  } catch(e){
+    showToast('Error saving. Try again.',true);
+  }
+  btn.disabled=false;btn.textContent='Add entry';
+}
+
+async function delEntry(id){
+  try {
+    await api('entries?id=eq.'+id,{method:'DELETE'});
+    entries=await loadEntries();
+    render();
+  } catch(e){
+    showToast('Error deleting.',true);
+  }
+}
 
 function unlock(){
   const v=document.getElementById('pwInput').value;
@@ -186,7 +248,7 @@ function setView(v){
   view=v;
   ['avg','total','all'].forEach(k=>{
     const b=document.getElementById('tab'+k.charAt(0).toUpperCase()+k.slice(1));
-    if(b){b.className='tab'+(k===v?' on':'');}
+    if(b)b.className='tab'+(k===v?' on':'');
   });
   buildChart();
 }
@@ -252,13 +314,12 @@ function buildStats(){
 function buildLog(){
   const isAdmin=document.getElementById('unlockedView').style.display==='block';
   const sorted=[...entries].reverse();
-  document.getElementById('logList').innerHTML=sorted.map((e,i)=>{
-    const ri=entries.length-1-i;
+  const tc={2024:'t24',2025:'t25',2026:'t26'};
+  document.getElementById('logList').innerHTML=sorted.map(e=>{
     const d=new Date(e.date+'T12:00:00');
     const yr=d.getFullYear();
     const lbl=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-    const tc={2024:'t24',2025:'t25',2026:'t26'};
-    const del=isAdmin?`<button class="del-btn" onclick="delEntry(${ri})" aria-label="delete">×</button>`:'';
+    const del=isAdmin?`<button class="del-btn" onclick="delEntry(${e.id})" aria-label="delete">×</button>`:'';
     return`<div class="log-row">
       <span class="log-date">${lbl}</span>
       <span class="log-tag ${tc[yr]||''}">${yr}</span>
@@ -267,21 +328,6 @@ function buildLog(){
     </div>`;
   }).join('');
 }
-
-function addEntry(){
-  const dv=document.getElementById('iDate').value;
-  const lv=parseFloat(document.getElementById('iLbs').value);
-  if(!dv||isNaN(lv)||lv<0){showToast('Please enter a valid date and amount.',true);return;}
-  entries.push({date:dv,lbs:lv});
-  entries.sort((a,b)=>a.date.localeCompare(b.date));
-  save(entries);
-  document.getElementById('iDate').valueAsDate=new Date();
-  document.getElementById('iLbs').value='';
-  showToast('Entry added!');
-  render();
-}
-
-function delEntry(i){entries.splice(i,1);save(entries);render();}
 
 function showToast(msg,err=false){
   const t=document.getElementById('toast');
@@ -301,7 +347,9 @@ function dlChart(){
 }
 
 function render(){buildStats();buildChart();buildLog();}
-render();
+
+// init
+loadEntries().then(rows=>{entries=rows;render();});
 </script>
 </body>
 </html>
